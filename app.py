@@ -174,8 +174,13 @@ def legal_qa():
                 # 调用AI（传入历史对话）
                 answer = legal_chain(new_question, chat_history)
 
-                # 更新历史对话（仅当回答无错误提示时）
-                if not answer.startswith("通义API客户端未初始化") and not answer.startswith("处理法律问题时出错"):
+                # 将模型错误转换为页面错误提示，避免前端“无响应”体验
+                if answer.startswith("通义API客户端未初始化") or answer.startswith("处理法律问题时出错"):
+                    app.logger.error("法律问答失败: %s", answer)
+                    error = answer
+                    answer = ""
+                else:
+                    # 更新历史对话（仅当回答无错误提示时）
                     update_chat_history(question, answer)
                     # 刷新历史对话（用于页面展示）
                     chat_history = get_chat_history()
