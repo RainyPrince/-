@@ -19,8 +19,9 @@
 
         body {
             background: #f9f9f9;
-            min-height: 100vh;
+            height: 100vh;
             padding: 20px 0 30px;
+            overflow: hidden;
         }
 
         /* 1. 头部样式 - 精简，不占用过多顶部空间 */
@@ -28,6 +29,7 @@
             text-align: center;
             margin-bottom: 25px;
             padding: 0 15px;
+            position: relative;
         }
 
         .header h1 {
@@ -44,11 +46,25 @@
             margin: 0 auto;
         }
 
+        .history-entry-btn {
+            position: absolute;
+            right: 0;
+            top: 4px;
+            border: 1px solid #dcdcdc;
+            background: #fff;
+            color: #333;
+            border-radius: 999px;
+            padding: 6px 12px;
+            font-size: 0.85rem;
+            cursor: pointer;
+        }
+
         /* 2. 核心布局容器 - 垂直顺序：表单 → 回答 → 历史 */
         .main-container {
             display: flex;
             flex-direction: column;
             gap: 22px;
+            height: calc(100vh - 160px);
         }
 
         /* 卡片通用样式 - 统一极简质感 */
@@ -83,6 +99,12 @@
         /* 3. 问题表单模块 - 最上方，突出操作 */
         .form-card {
             order: 1; /* 强制排在第1位 */
+            display: flex;
+            flex-direction: column;
+        }
+
+        .form-card .card-body {
+            overflow-y: auto;
         }
 
         .form-group {
@@ -116,6 +138,27 @@
             margin-top: 5px;
         }
 
+        .guide-templates {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .guide-chip {
+            border: 1px solid #dcdcdc;
+            background: #fafafa;
+            color: #333;
+            border-radius: 999px;
+            padding: 6px 12px;
+            font-size: 0.85rem;
+            cursor: pointer;
+        }
+
+        .guide-chip:hover {
+            background: #f1f1f1;
+        }
+
         /* 提交按钮 - 突出且独立 */
         .btn-submit {
             background: #222;
@@ -135,15 +178,33 @@
         }
 
         /* 4. 最新回答模块 - 紧跟表单，提交后立即查看 */
+        .answer-panel {
+            order: 2;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            min-height: 0;
+        }
+
         .answer-card {
-            order: 2; /* 强制排在第2位 */
-            display: {% if answer and not answer.startswith("通义API客户端未初始化") and not answer.startswith("处理法律问题时出错") %}block{% else %}none{% endif %};
+            flex: 1;
+            min-height: 0;
+            display: {% if answer and not answer.startswith("通义API客户端未初始化") and not answer.startswith("处理法律问题时出错") %}flex{% else %}none{% endif %};
+            flex-direction: column;
+        }
+
+        .answer-card .card-body {
+            flex: 1;
+            min-height: 0;
         }
 
         .answer-content {
             line-height: 1.7;
             color: #333;
             font-size: 1rem;
+            height: 100%;
+            overflow-y: auto;
+            padding-right: 4px;
         }
 
         .risk-alert {
@@ -156,20 +217,110 @@
             font-size: 0.9rem;
         }
 
-        /* 5. 历史对话模块 - 最底部，需要时再查看 */
-        .history-card {
-            order: 3; /* 强制排在第3位 */
+        .traceability-box {
+            margin-top: 16px;
+            background: #f5f8ff;
+            border: 1px solid #dde7ff;
+            border-radius: 6px;
+            padding: 12px 14px;
+            font-size: 0.9rem;
+            color: #2f3e63;
         }
 
-        .history-card .card-body {
-            padding: 0;
+        .traceability-box ul {
+            margin: 8px 0 0 16px;
+        }
+
+        .followup-list {
+            margin-top: 16px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .followup-btn {
+            border: 1px solid #d8d8d8;
+            border-radius: 999px;
+            padding: 6px 12px;
+            font-size: 0.84rem;
+            background: #fff;
+            cursor: pointer;
+        }
+
+        .feedback-box {
+            margin-top: 0;
+            border: 1px solid #eee;
+            border-radius: 8px;
+            background: #fff;
+            padding: 14px;
+        }
+
+        .feedback-actions {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .btn-feedback {
+            border: 1px solid #d8d8d8;
+            background: #fff;
+            border-radius: 6px;
+            padding: 6px 12px;
+            font-size: 0.86rem;
+        }
+
+        .history-drawer-mask {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.35);
+            display: none;
+            z-index: 999;
+        }
+
+        .history-drawer {
+            position: fixed;
+            top: 0;
+            right: 0;
+            width: min(460px, 92vw);
+            height: 100vh;
+            background: #fff;
+            border-left: 1px solid #ececec;
+            transform: translateX(100%);
+            transition: transform 0.25s ease;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .history-drawer.open {
+            transform: translateX(0);
+        }
+
+        .history-drawer-header {
+            padding: 14px 16px;
+            border-bottom: 1px solid #ececec;
+            background: #f7f7f7;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .history-drawer-title {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .history-drawer-actions {
+            display: flex;
+            gap: 8px;
         }
 
         .history-content {
             padding: 18px;
-            max-height: 280px; /* 控制高度，避免占用过多屏幕 */
             overflow-y: auto;
             line-height: 1.6;
+            flex: 1;
         }
 
         /* 消息样式 - 简洁区分 */
@@ -266,27 +417,29 @@
 
         /* 8. 响应式布局 - 大屏优化表单与回答的空间利用 */
         @media (min-width: 992px) {
-            /* 大屏：表单（左50%）+ 回答（右50%）横向并列，历史仍在底部 */
+            /* 大屏：表单（左50%）+ 回答（右50%）横向并列 */
             .main-container {
                 flex-direction: row;
-                flex-wrap: wrap;
+                align-items: stretch;
             }
-            .form-card, .answer-card {
+            .form-card, .answer-panel {
                 width: 50%;
-            }
-            .history-card {
-                width: 100%; /* 历史占满整行 */
+                height: 100%;
             }
             .header h1 {
                 font-size: 2.1rem;
-            }
-            .history-content {
-                max-height: 320px;
             }
         }
 
         /* 小屏：保持垂直顺序，优化间距 */
         @media (max-width: 991px) {
+            body {
+                height: auto;
+                overflow: auto;
+            }
+            .main-container {
+                height: auto;
+            }
             .card-body {
                 padding: 15px;
             }
@@ -296,6 +449,7 @@
             }
             .answer-content {
                 font-size: 0.95rem;
+                overflow-y: visible;
             }
         }
     </style>
@@ -306,6 +460,9 @@
         <div class="header">
             <h1><i class="fa fa-balance-scale" aria-hidden="true"></i> 智能法律问答系统</h1>
             <p>提供合规、易懂的法律问题解答（支持多轮对话）</p>
+            <button type="button" class="history-entry-btn" id="openHistoryBtn">
+                <i class="fa fa-history" aria-hidden="true"></i> 历史记录
+            </button>
         </div>
 
         <!-- 2. 消息提示 - 头部下方，通栏 -->
@@ -322,6 +479,12 @@
             </div>
             {% endif %}
         {% endif %}
+        {% if success %}
+            <div class="alert alert-success alert-dismissible fade show" role="alert">
+                <i class="fa fa-check-circle" aria-hidden="true"></i> {{ success }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        {% endif %}
 
         <!-- 3. 核心内容区 - 顺序：表单 → 回答 → 历史 -->
         <div class="main-container">
@@ -331,6 +494,10 @@
                     <i class="fa fa-pencil" aria-hidden="true"></i> 提交法律问题
                 </div>
                 <div class="card-body">
+                    <div class="risk-alert" style="margin-top: 0; margin-bottom: 16px;">
+                        <i class="fa fa-info-circle" aria-hidden="true"></i>
+                        边界声明：本系统仅提供中国法律的一般性信息，不构成律师法律意见。涉及重大权益请联系执业律师。
+                    </div>
                     <form method="POST" id="legalForm">
                         <div class="row g-3">
                             <!-- 法律类别选择 -->
@@ -367,6 +534,11 @@
                                     <div class="form-text">
                                         建议包含「时间、行为、诉求」（如“2024年5月租房到期，房东不退押金，如何追回？”），提升解答精准度
                                     </div>
+                                    <div class="guide-templates">
+                                        <button type="button" class="guide-chip" data-template="劳动争议模板：时间（__）+公司行为（__）+现有证据（__）+我的诉求（__）">劳动争议模板</button>
+                                        <button type="button" class="guide-chip" data-template="租赁纠纷模板：房屋地址（__）+合同约定（__）+对方违约行为（__）+希望结果（__）">租赁纠纷模板</button>
+                                        <button type="button" class="guide-chip" data-template="合同纠纷模板：签约时间（__）+核心条款（__）+违约情况（__）+已沟通记录（__）">合同纠纷模板</button>
+                                    </div>
                                 </div>
                             </div>
 
@@ -382,56 +554,93 @@
                 </div>
             </div>
 
-            <!-- 3.2 最新回答卡片 - 表单下方/右侧（有回答时显示） -->
-            <div class="custom-card answer-card">
-                <div class="card-header">
-                    <i class="fa fa-check-circle" aria-hidden="true"></i> 最新法律意见（仅供参考）
-                </div>
-                <div class="card-body">
-                    <div class="answer-content">
-                        {{ answer|replace('\n', '<br>')|safe }}
-                        <div class="risk-alert">
-                            <i class="fa fa-exclamation-triangle" aria-hidden="true"></i>
-                            重要提示：本回答不具备法律效力，具体案件需咨询当地执业律师，结合个案细节（证据、时效、地区差异）获取针对性建议，请勿直接依据本回答行动。
+            <div class="answer-panel">
+                <!-- 3.2 最新回答卡片 - 表单下方/右侧（有回答时显示） -->
+                <div class="custom-card answer-card">
+                    <div class="card-header">
+                        <i class="fa fa-check-circle" aria-hidden="true"></i> 最新法律意见（仅供参考）
+                    </div>
+                    <div class="card-body">
+                        <div class="answer-content">
+                            {{ answer|replace('\n', '<br>')|safe }}
+                            {% if traceability and traceability.is_traceable %}
+                                <div class="traceability-box">
+                                    <strong>溯源检查：</strong>已检测到法条引用，可追溯核验
+                                    <ul>
+                                        {% for ref in traceability.references %}
+                                            <li>{{ ref }}</li>
+                                        {% endfor %}
+                                    </ul>
+                                </div>
+                            {% endif %}
+                            {% if followup_prompts and followup_prompts|length > 0 %}
+                                <div class="followup-list">
+                                    {% for prompt in followup_prompts %}
+                                        <button type="button" class="followup-btn" data-followup="{{ prompt }}">
+                                            {{ prompt }}
+                                        </button>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                            <div class="risk-alert">
+                                <i class="fa fa-exclamation-triangle" aria-hidden="true"></i>
+                                重要提示：本回答不具备法律效力，具体案件需咨询当地执业律师，结合个案细节（证据、时效、地区差异）获取针对性建议，请勿直接依据本回答行动。
+                            </div>
                         </div>
                     </div>
                 </div>
+
+                {% if answer %}
+                <div class="feedback-box">
+                    <form method="POST" action="/feedback">
+                        <div class="feedback-actions">
+                            <button type="submit" class="btn-feedback" name="feedback_type" value="helpful">👍 有帮助</button>
+                            <button type="submit" class="btn-feedback" name="feedback_type" value="not_helpful">👎 不准确</button>
+                        </div>
+                        <input type="text" class="form-control" name="feedback_note" placeholder="可选：告诉我们哪一部分需要改进（最多200字）">
+                    </form>
+                    <div class="form-text">当前会话已提交反馈 {{ feedback_count if feedback_count else 0 }} 条</div>
+                </div>
+                {% endif %}
             </div>
 
-            <!-- 3.3 历史对话卡片 - 最底部（所有屏幕） -->
-            <div class="custom-card history-card">
-                <div class="card-header">
-                    <div><i class="fa fa-history" aria-hidden="true"></i> 历史对话记录</div>
-                    <form action="/clear_history" method="POST" onsubmit="return confirm('确定清空所有历史对话吗？');">
-                        <button type="submit" class="btn-clear">
-                            <i class="fa fa-trash-o" aria-hidden="true"></i> 清空历史
-                        </button>
-                    </form>
-                </div>
-                <div class="card-body">
-                    <div class="history-content">
-                        {% if chat_history and chat_history|length > 0 %}
-                            {% for msg in chat_history %}
-                                <div class="message {{ 'user-message' if msg.role == 'user' else 'ai-message' }}">
-                                    <div class="sender">
-                                        {{ '您的问题' if msg.role == 'user' else '系统回答' }}
-                                    </div>
-                                    <div class="content">
-                                        {{ msg.content|replace('\n', '<br>')|safe }}
-                                    </div>
-                                </div>
-                            {% endfor %}
-                        {% else %}
-                            <div class="empty-history">
-                                <i class="fa fa-comment-o" aria-hidden="true"></i>
-                                <p>暂无历史对话，提交问题开始咨询吧</p>
-                            </div>
-                        {% endif %}
-                    </div>
-                </div>
-            </div>
         </div>
     </div>
+
+    <!-- 历史记录抽屉 -->
+    <div class="history-drawer-mask" id="historyMask"></div>
+    <aside class="history-drawer" id="historyDrawer">
+        <div class="history-drawer-header">
+            <div class="history-drawer-title"><i class="fa fa-history" aria-hidden="true"></i> 历史对话记录</div>
+            <div class="history-drawer-actions">
+                <button type="button" class="btn-clear" id="closeHistoryBtn">关闭</button>
+                <form action="/clear_history" method="POST" onsubmit="return confirm('确定清空所有历史对话吗？');">
+                    <button type="submit" class="btn-clear">
+                        <i class="fa fa-trash-o" aria-hidden="true"></i> 清空历史
+                    </button>
+                </form>
+            </div>
+        </div>
+        <div class="history-content">
+            {% if chat_history and chat_history|length > 0 %}
+                {% for msg in chat_history %}
+                    <div class="message {{ 'user-message' if msg.role == 'user' else 'ai-message' }}">
+                        <div class="sender">
+                            {{ '您的问题' if msg.role == 'user' else '系统回答' }}
+                        </div>
+                        <div class="content">
+                            {{ msg.content|replace('\n', '<br>')|safe }}
+                        </div>
+                    </div>
+                {% endfor %}
+            {% else %}
+                <div class="empty-history">
+                    <i class="fa fa-comment-o" aria-hidden="true"></i>
+                    <p>暂无历史对话，提交问题开始咨询吧</p>
+                </div>
+            {% endif %}
+        </div>
+    </aside>
 
     <!-- 基础JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
@@ -448,20 +657,95 @@
             loader.style.display = 'inline-block';
         });
 
+        // 1.1 问题引导模板填充
+        const guideButtons = document.querySelectorAll('.guide-chip');
+        guideButtons.forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                const questionInput = document.getElementById('question');
+                questionInput.value = btn.getAttribute('data-template');
+                questionInput.focus();
+            });
+        });
+
+        // 1.2 多轮追问快捷填充
+        const followupButtons = document.querySelectorAll('.followup-btn');
+        followupButtons.forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                const questionInput = document.getElementById('question');
+                questionInput.value = btn.getAttribute('data-followup');
+                questionInput.focus();
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            });
+        });
+
         // 2. 页面加载后处理
         document.addEventListener('DOMContentLoaded', function() {
             // 历史对话滚动到底部
-            const historyContent = document.querySelector('.history-content');
+            const historyContent = document.querySelector('.history-drawer .history-content');
             if (historyContent) {
                 historyContent.scrollTop = historyContent.scrollHeight;
             }
 
             // 有回答时，滚动到回答区（大屏横向并列时更明显）
             const answerCard = document.querySelector('.answer-card');
-            if (answerCard && answerCard.style.display === 'block') {
+            if (answerCard && answerCard.style.display !== 'none') {
                 answerCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
             }
         });
+
+        // 3. 历史记录抽屉（点击 + 手势）
+        const historyDrawer = document.getElementById('historyDrawer');
+        const historyMask = document.getElementById('historyMask');
+        const openHistoryBtn = document.getElementById('openHistoryBtn');
+        const closeHistoryBtn = document.getElementById('closeHistoryBtn');
+
+        function openHistoryDrawer() {
+            historyDrawer.classList.add('open');
+            historyMask.style.display = 'block';
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeHistoryDrawer() {
+            historyDrawer.classList.remove('open');
+            historyMask.style.display = 'none';
+            document.body.style.overflow = '';
+        }
+
+        openHistoryBtn.addEventListener('click', openHistoryDrawer);
+        closeHistoryBtn.addEventListener('click', closeHistoryDrawer);
+        historyMask.addEventListener('click', closeHistoryDrawer);
+
+        // 移动端手势：从右边缘左滑打开；在抽屉里右滑关闭
+        let touchStartX = 0;
+        let touchEndX = 0;
+
+        document.addEventListener('touchstart', function(e) {
+            touchStartX = e.changedTouches[0].screenX;
+        }, { passive: true });
+
+        document.addEventListener('touchend', function(e) {
+            touchEndX = e.changedTouches[0].screenX;
+            const delta = touchStartX - touchEndX;
+
+            // 从屏幕右边缘向左滑，打开抽屉
+            if (touchStartX > window.innerWidth - 24 && delta > 55 && !historyDrawer.classList.contains('open')) {
+                openHistoryDrawer();
+            }
+        }, { passive: true });
+
+        historyDrawer.addEventListener('touchstart', function(e) {
+            touchStartX = e.changedTouches[0].screenX;
+        }, { passive: true });
+
+        historyDrawer.addEventListener('touchend', function(e) {
+            touchEndX = e.changedTouches[0].screenX;
+            const delta = touchEndX - touchStartX;
+
+            // 在抽屉内向右滑，关闭抽屉
+            if (delta > 55) {
+                closeHistoryDrawer();
+            }
+        }, { passive: true });
     </script>
 </body>
 </html>

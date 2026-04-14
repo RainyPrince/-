@@ -1,4 +1,5 @@
 import os
+import re
 import time
 import requests
 from flask import Flask, render_template, request, session
@@ -49,6 +50,19 @@ def clear_chat_history():
     session.pop("chat_history", None)
 
 
+def get_feedback_records():
+    """读取会话内反馈记录"""
+    return session.get("feedback_records", [])
+
+
+def add_feedback_record(record: dict):
+    """写入会话内反馈记录（最多保留30条）"""
+    records = get_feedback_records()
+    records.append(record)
+    session["feedback_records"] = records[-30:]
+    session.permanent = True
+
+
 # -------------------------- 演示环境轻量限流 --------------------------
 def is_rate_limited(limit_count: int = 8, window_seconds: int = 60):
     """
@@ -81,11 +95,29 @@ legal_prompt = PromptTemplate(
     3. 回答要求：
        - 必须引用具体法律依据（如《民法典》第XX条），禁止模糊表述；
        - 若当前问题是上一轮的追问（如“需要准备什么证据”），必须关联历史问题回答；
-       - 结构清晰：先结论，再分点说明法律依据+操作建议；
+       - 必须使用如下结构化标题输出：
+         【结论】
+         【法律依据与出处】（列出法条名称、条号、适用要点）
+         【建议步骤】（按1/2/3列出）
+         【风险与边界】（明确不构成正式法律意见、适用范围）
        - 涉及个案细节时，必须提示“本回答仅为科普，具体需咨询执业律师”；
        - 严禁编造法条或引用过时内容。
     """
 )
+
+
+def evaluate_traceability(answer: str):
+    """检测回答中是否包含可追溯法条引用"""
+    # 例如：《中华人民共和国民法典》第五百六十三条
+    refs = re.findall(r"《[^》]{2,40}》第[一二三四五六七八九十百千万0-9]+条", answer)
+    unique_refs = list(dict.fromkeys(refs))
+    return {
+        "has_structured_sections": all(
+            key in answer for key in ["【结论】", "【法律依据与出处】", "【建议步骤】", "【风险与边界】"]
+        ),
+        "references": unique_refs[:6],
+        "is_traceable": len(unique_refs) > 0
+    }
 
 
 # -------------------------- 核心函数（传入历史对话） --------------------------
@@ -109,9 +141,10 @@ def legal_chain(new_question: str, chat_history: list):
 
         # 调用AI（messages参数天然支持上下文，可直接传入历史对话）
         messages = [
-            {"role": "system", "content": "你是严格依据中国法律的专业法律顾问，必须关联历史对话回答"},
+            {"role": "system", "content": "你是严格依据中国法律的专业法律顾问，必须关联历史对话回答，并严格按指定结构输出"},
+            {"role": "system", "content": "输出必须包含：【结论】【法律依据与出处】【建议步骤】【风险与边界】四个标题"},
             *chat_history,  # 直接传入历史对话列表，AI会自动理解上下文
-            {"role": "user", "content": new_question}
+            {"role": "user", "content": prompt}
         ]
 
         response = text_client.chat.completions.create(
@@ -140,6 +173,13 @@ def legal_qa():
     question = ""
     answer = ""
     error = ""
+    success = ""
+    traceability = {"has_structured_sections": False, "references": [], "is_traceable": False}
+    followup_prompts = [
+        "基于上一个问题，我需要准备哪些关键证据？",
+        "如果对方不配合，我下一步应走什么程序？",
+        "这个问题是否有诉讼时效限制？"
+    ]
     chat_history = get_chat_history()  # 读取历史对话
 
     if request.method == "POST":
@@ -151,7 +191,10 @@ def legal_qa():
                 question="",
                 answer="",
                 error=error,
-                chat_history=chat_history
+                success=success,
+                traceability=traceability,
+                chat_history=chat_history,
+                followup_prompts=followup_prompts
             )
 
         # 获取用户输入
@@ -180,17 +223,37 @@ def legal_qa():
                     error = answer
                     answer = ""
                 else:
+                    traceability = evaluate_traceability(answer)
+                    if not traceability["is_traceable"]:
+                        error = "本次回答缺少明确法条引用，建议补充更具体案情后重试"
+                        answer = ""
+                    elif not traceability["has_structured_sections"]:
+                        error = "本次回答结构不完整，请重试以获取标准化输出"
+                        answer = ""
+                    else:
+                        success = "✅ 已生成结构化法律建议，可继续追问细节"
                     # 更新历史对话（仅当回答无错误提示时）
-                    update_chat_history(question, answer)
-                    # 刷新历史对话（用于页面展示）
-                    chat_history = get_chat_history()
+                    if answer:
+                        update_chat_history(question, answer)
+                        # 记录最近一次可反馈回答
+                        session["latest_qa"] = {
+                            "question": question,
+                            "answer": answer[:1500],
+                            "references": traceability["references"]
+                        }
+                        # 刷新历史对话（用于页面展示）
+                        chat_history = get_chat_history()
 
     # 传递数据到前端（新增chat_history）
     return render_template(
         "index.html",
         question=question,
         answer=answer,
-        error=error,
+        error=error or "",
+        success=success,
+        traceability=traceability,
+        feedback_count=len(get_feedback_records()),
+        followup_prompts=followup_prompts,
         chat_history=chat_history  # 历史对话传递到前端
     )
 
@@ -203,7 +266,65 @@ def clear_history():
     return render_template(
         "index.html",
         error="✅ 历史对话已清空",
+        success="",
+        traceability={"has_structured_sections": False, "references": [], "is_traceable": False},
+        feedback_count=len(get_feedback_records()),
+        followup_prompts=[],
         chat_history=[]  # 传递空历史
+    )
+
+
+@app.route("/feedback", methods=["POST"])
+def submit_feedback():
+    feedback_type = request.form.get("feedback_type", "").strip()
+    feedback_note = request.form.get("feedback_note", "").strip()
+    latest_qa = session.get("latest_qa")
+    chat_history = get_chat_history()
+
+    if not latest_qa:
+        return render_template(
+            "index.html",
+            error="暂无可反馈的回答，请先提交一个问题",
+            success="",
+            question="",
+            answer="",
+            traceability={"has_structured_sections": False, "references": [], "is_traceable": False},
+            feedback_count=len(get_feedback_records()),
+            followup_prompts=[],
+            chat_history=chat_history
+        )
+
+    if feedback_type not in ["helpful", "not_helpful"]:
+        return render_template(
+            "index.html",
+            error="反馈类型无效，请重新提交",
+            success="",
+            question="",
+            answer="",
+            traceability={"has_structured_sections": False, "references": [], "is_traceable": False},
+            feedback_count=len(get_feedback_records()),
+            followup_prompts=[],
+            chat_history=chat_history
+        )
+
+    add_feedback_record({
+        "timestamp": int(time.time()),
+        "feedback_type": feedback_type,
+        "feedback_note": feedback_note[:200],
+        "question": latest_qa.get("question", "")[:300],
+        "references": latest_qa.get("references", [])
+    })
+
+    return render_template(
+        "index.html",
+        error="",
+        success="✅ 感谢反馈，我们会持续优化回答质量",
+        question="",
+        answer="",
+        traceability={"has_structured_sections": False, "references": [], "is_traceable": False},
+        feedback_count=len(get_feedback_records()),
+        followup_prompts=[],
+        chat_history=chat_history
     )
 
 
